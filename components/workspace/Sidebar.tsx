@@ -2,11 +2,12 @@
 
 import { useState } from 'react';
 import { Badge, Button, Textarea } from '@/components/ui';
-import { useWorkspace } from '@/context/WorkspaceContext';
+import { useWorkspace, type IdeaListItem } from '@/context/WorkspaceContext';
 import { useTheme } from '@/context/ThemeContext';
 import { SECTION_ORDER, SECTION_TITLES } from '@/types/workspace';
 import { IDEA_TEMPLATES, TEMPLATE_CATEGORIES } from '@/lib/templates';
 import type { SectionKey, SectionStatus, TeamSize, Complexity } from '@/types/workspace';
+import type { Id } from '@/convex/_generated/dataModel';
 
 interface SidebarProps {
   onGenerate: () => void;
@@ -45,11 +46,28 @@ const COMPLEXITIES: { value: Complexity; label: string }[] = [
 ];
 
 export function Sidebar({ onGenerate, onRegenerate, isGenerating, currentSection }: SidebarProps) {
-  const { workspace, selectedSection, setSelectedSection, setRawIdea, setSettings, toggleSectionLocked } = useWorkspace();
+  const {
+    workspace,
+    selectedSection,
+    setSelectedSection,
+    setRawIdea,
+    setName,
+    setSettings,
+    toggleSectionLocked,
+    ideas,
+    currentIdeaId,
+    isLoadingIdeas,
+    isSaving,
+    selectIdea,
+    createNewIdea,
+    deleteIdea,
+  } = useWorkspace();
   const { theme, resolvedTheme, setTheme, mounted } = useTheme();
   const [showSettings, setShowSettings] = useState(false);
   const [showTemplates, setShowTemplates] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+  const [showIdeasPanel, setShowIdeasPanel] = useState(false);
+  const [isCreatingIdea, setIsCreatingIdea] = useState(false);
 
   const cycleTheme = () => {
     const themes: Array<'light' | 'dark' | 'system'> = ['light', 'dark', 'system'];
@@ -58,7 +76,24 @@ export function Sidebar({ onGenerate, onRegenerate, isGenerating, currentSection
     setTheme(themes[nextIndex]);
   };
 
-  const canGenerate = workspace.rawIdea.trim().length > 10;
+  const handleCreateNewIdea = async () => {
+    setIsCreatingIdea(true);
+    try {
+      await createNewIdea();
+      setShowIdeasPanel(false);
+    } finally {
+      setIsCreatingIdea(false);
+    }
+  };
+
+  const handleDeleteIdea = async (id: Id<'ideas'>, e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (confirm('Are you sure you want to delete this idea?')) {
+      await deleteIdea(id);
+    }
+  };
+
+  const canGenerate = workspace.rawIdea.trim().length > 10 && currentIdeaId !== null;
 
   const filteredTemplates = selectedCategory
     ? IDEA_TEMPLATES.filter((t) => t.category === selectedCategory)
@@ -84,24 +119,124 @@ export function Sidebar({ onGenerate, onRegenerate, isGenerating, currentSection
             </h1>
             <span className="text-xs text-zinc-500">Transform ideas into action</span>
           </div>
+          <div className="flex items-center gap-1">
+            {isSaving && (
+              <span className="text-xs text-zinc-400">Saving...</span>
+            )}
+            <button
+              type="button"
+              onClick={cycleTheme}
+              className="flex h-8 w-8 items-center justify-center rounded-lg text-zinc-500 transition-colors hover:bg-zinc-100 hover:text-zinc-700 dark:hover:bg-zinc-800 dark:hover:text-zinc-300"
+              title={`Theme: ${theme}`}
+            >
+              {!mounted ? (
+                <span className="h-5 w-5" />
+              ) : resolvedTheme === 'dark' ? (
+                <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
+                </svg>
+              ) : (
+                <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
+                </svg>
+              )}
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* Ideas Selector */}
+      <div className="border-b border-zinc-200 p-3 dark:border-zinc-800">
+        <div className="relative">
           <button
             type="button"
-            onClick={cycleTheme}
-            className="flex h-8 w-8 items-center justify-center rounded-lg text-zinc-500 transition-colors hover:bg-zinc-100 hover:text-zinc-700 dark:hover:bg-zinc-800 dark:hover:text-zinc-300"
-            title={`Theme: ${theme}`}
+            onClick={() => setShowIdeasPanel(!showIdeasPanel)}
+            className="flex w-full items-center justify-between rounded-lg border border-zinc-200 bg-zinc-50 px-3 py-2 text-left transition-colors hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-800 dark:hover:bg-zinc-700"
           >
-            {!mounted ? (
-              <span className="h-5 w-5" />
-            ) : resolvedTheme === 'dark' ? (
-              <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
-              </svg>
-            ) : (
-              <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
-              </svg>
-            )}
+            <div className="flex-1 min-w-0">
+              <span className="block truncate text-sm font-medium text-zinc-900 dark:text-zinc-100">
+                {workspace.name || 'New Idea'}
+              </span>
+              <span className="block truncate text-xs text-zinc-500">
+                {ideas?.length ?? 0} idea{(ideas?.length ?? 0) !== 1 ? 's' : ''}
+              </span>
+            </div>
+            <svg
+              className={`h-4 w-4 text-zinc-400 transition-transform ${showIdeasPanel ? 'rotate-180' : ''}`}
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+            </svg>
           </button>
+
+          {showIdeasPanel && (
+            <div className="absolute left-0 right-0 top-full z-20 mt-1 max-h-64 overflow-y-auto rounded-lg border border-zinc-200 bg-white shadow-lg dark:border-zinc-700 dark:bg-zinc-800">
+              <div className="p-2">
+                <button
+                  type="button"
+                  onClick={handleCreateNewIdea}
+                  disabled={isCreatingIdea}
+                  className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-sm text-blue-600 transition-colors hover:bg-blue-50 dark:text-blue-400 dark:hover:bg-blue-900/20"
+                >
+                  {isCreatingIdea ? (
+                    <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-500 border-t-transparent" />
+                  ) : (
+                    <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                    </svg>
+                  )}
+                  New Idea
+                </button>
+              </div>
+              <div className="border-t border-zinc-200 dark:border-zinc-700">
+                {isLoadingIdeas ? (
+                  <div className="flex items-center justify-center py-4">
+                    <div className="h-5 w-5 animate-spin rounded-full border-2 border-zinc-300 border-t-blue-500" />
+                  </div>
+                ) : ideas && ideas.length > 0 ? (
+                  ideas.map((idea) => (
+                    <button
+                      key={idea._id}
+                      type="button"
+                      onClick={() => {
+                        selectIdea(idea._id);
+                        setShowIdeasPanel(false);
+                      }}
+                      className={`flex w-full items-center justify-between px-3 py-2 text-left transition-colors hover:bg-zinc-50 dark:hover:bg-zinc-700 ${
+                        currentIdeaId === idea._id ? 'bg-zinc-100 dark:bg-zinc-700' : ''
+                      }`}
+                    >
+                      <div className="flex-1 min-w-0">
+                        <span className="block truncate text-sm font-medium text-zinc-900 dark:text-zinc-100">
+                          {idea.name}
+                        </span>
+                        <span className="block truncate text-xs text-zinc-500">
+                          {idea.rawIdea.slice(0, 50)}{idea.rawIdea.length > 50 ? '...' : ''}
+                        </span>
+                      </div>
+                      {ideas.length > 1 && (
+                        <button
+                          type="button"
+                          onClick={(e) => handleDeleteIdea(idea._id, e)}
+                          className="ml-2 rounded p-1 text-zinc-400 transition-colors hover:bg-red-100 hover:text-red-500 dark:hover:bg-red-900/20"
+                        >
+                          <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                          </svg>
+                        </button>
+                      )}
+                    </button>
+                  ))
+                ) : (
+                  <div className="py-4 text-center text-sm text-zinc-500">
+                    No ideas yet. Create your first one!
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
