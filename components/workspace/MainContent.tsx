@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { Badge, Button, SkeletonGroup } from '@/components/ui';
 import { useWorkspace } from '@/context/WorkspaceContext';
 import { SECTION_TITLES } from '@/types/workspace';
@@ -822,6 +822,20 @@ export function MainContent({ onRegenerate, currentSection }: MainContentProps) 
   const { workspace, selectedSection, toggleSectionLocked } = useWorkspace();
   const [exportCopied, setExportCopied] = useState<'section' | 'all' | null>(null);
   const [showExportMenu, setShowExportMenu] = useState(false);
+  const exportMenuRef = useRef<HTMLDivElement>(null);
+
+  // Click outside handler for export menu
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (exportMenuRef.current && !exportMenuRef.current.contains(event.target as Node)) {
+        setShowExportMenu(false);
+      }
+    };
+    if (showExportMenu) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [showExportMenu]);
 
   const copySection = async () => {
     const markdown = sectionToMarkdown(selectedSection!, workspace);
@@ -968,7 +982,7 @@ export function MainContent({ onRegenerate, currentSection }: MainContentProps) 
                   </>
                 )}
               </Button>
-              <div className="relative">
+              <div className="relative" ref={exportMenuRef}>
                 <Button
                   variant="ghost"
                   size="sm"
@@ -981,9 +995,7 @@ export function MainContent({ onRegenerate, currentSection }: MainContentProps) 
                   <span className="ml-1">Export</span>
                 </Button>
                 {showExportMenu && (
-                  <>
-                    <div className="fixed inset-0 z-10" onClick={() => setShowExportMenu(false)} />
-                    <div className="absolute right-0 top-full z-20 mt-1 w-48 rounded-lg border border-zinc-200 bg-white py-1 shadow-lg dark:border-zinc-700 dark:bg-zinc-800">
+                  <div className="absolute right-0 top-full z-20 mt-1 w-48 rounded-lg border border-zinc-200 bg-white py-1 shadow-lg dark:border-zinc-700 dark:bg-zinc-800">
                       <button
                         type="button"
                         onClick={copyAll}
@@ -1005,7 +1017,6 @@ export function MainContent({ onRegenerate, currentSection }: MainContentProps) 
                         Download as .md
                       </button>
                     </div>
-                  </>
                 )}
               </div>
             </>

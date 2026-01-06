@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import { Badge, Button, Textarea } from '@/components/ui';
 import { useWorkspace, type IdeaListItem } from '@/context/WorkspaceContext';
 import { useTheme } from '@/context/ThemeContext';
@@ -68,6 +68,20 @@ export function Sidebar({ onGenerate, onRegenerate, isGenerating, currentSection
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [showIdeasPanel, setShowIdeasPanel] = useState(false);
   const [isCreatingIdea, setIsCreatingIdea] = useState(false);
+  const ideasPanelRef = useRef<HTMLDivElement>(null);
+
+  // Click outside handler for ideas panel
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (ideasPanelRef.current && !ideasPanelRef.current.contains(event.target as Node)) {
+        setShowIdeasPanel(false);
+      }
+    };
+    if (showIdeasPanel) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [showIdeasPanel]);
 
   const cycleTheme = () => {
     const themes: Array<'light' | 'dark' | 'system'> = ['light', 'dark', 'system'];
@@ -76,7 +90,8 @@ export function Sidebar({ onGenerate, onRegenerate, isGenerating, currentSection
     setTheme(themes[nextIndex]);
   };
 
-  const handleCreateNewIdea = async () => {
+  const handleCreateNewIdea = useCallback(async () => {
+    if (isCreatingIdea) return;
     setIsCreatingIdea(true);
     try {
       await createNewIdea();
@@ -84,7 +99,14 @@ export function Sidebar({ onGenerate, onRegenerate, isGenerating, currentSection
     } finally {
       setIsCreatingIdea(false);
     }
-  };
+  }, [createNewIdea, isCreatingIdea]);
+
+  // Auto-create first idea when user has no ideas
+  useEffect(() => {
+    if (ideas !== undefined && ideas.length === 0 && !isCreatingIdea && !currentIdeaId) {
+      handleCreateNewIdea();
+    }
+  }, [ideas, isCreatingIdea, currentIdeaId, handleCreateNewIdea]);
 
   const handleDeleteIdea = async (id: Id<'ideas'>, e: React.MouseEvent) => {
     e.stopPropagation();
@@ -147,7 +169,7 @@ export function Sidebar({ onGenerate, onRegenerate, isGenerating, currentSection
 
       {/* Ideas Selector */}
       <div className="border-b border-zinc-200 p-3 dark:border-zinc-800">
-        <div className="relative">
+        <div className="relative" ref={ideasPanelRef}>
           <button
             type="button"
             onClick={() => setShowIdeasPanel(!showIdeasPanel)}
