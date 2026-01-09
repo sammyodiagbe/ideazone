@@ -239,6 +239,7 @@ interface WorkspaceContextValue {
   isLoadingIdeas: boolean;
   isSaving: boolean;
   selectIdea: (id: Id<'ideas'>) => void;
+  clearCurrentIdea: () => void;
   createNewIdea: () => Promise<void>;
   deleteIdea: (id: Id<'ideas'>) => Promise<void>;
   saveCurrentIdea: () => Promise<void>;
@@ -366,12 +367,8 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
     }
   }, [currentIdea]);
 
-  // Auto-select first idea on initial load
-  useEffect(() => {
-    if (ideas && ideas.length > 0 && !currentIdeaId) {
-      setCurrentIdeaId(ideas[0]._id);
-    }
-  }, [ideas, currentIdeaId]);
+  // Note: We no longer auto-select the first idea
+  // This allows the dashboard to show all ideas on first load
 
   // Debounced save to Convex
   const saveToConvex = useCallback(async () => {
@@ -448,6 +445,16 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
     setCurrentIdeaId(id);
   }, [currentIdeaId, saveToConvex]);
 
+  const clearCurrentIdea = useCallback(() => {
+    // Save current idea before clearing
+    if (currentIdeaId && saveTimeoutRef.current) {
+      clearTimeout(saveTimeoutRef.current);
+      saveToConvex();
+    }
+    setCurrentIdeaId(null);
+    dispatch({ type: 'RESET_WORKSPACE' });
+  }, [currentIdeaId, saveToConvex]);
+
   const createNewIdea = useCallback(async () => {
     const newWorkspace = createDefaultWorkspace();
     const id = await createIdea({
@@ -491,6 +498,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
     isLoadingIdeas: ideas === undefined,
     isSaving,
     selectIdea,
+    clearCurrentIdea,
     createNewIdea,
     deleteIdea,
     saveCurrentIdea: saveToConvex,

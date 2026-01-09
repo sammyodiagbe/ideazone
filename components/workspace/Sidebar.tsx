@@ -59,6 +59,7 @@ export function Sidebar({ onGenerate, onRegenerate, isGenerating, currentSection
     isLoadingIdeas,
     isSaving,
     selectIdea,
+    clearCurrentIdea,
     createNewIdea,
     deleteIdea,
   } = useWorkspace();
@@ -101,12 +102,7 @@ export function Sidebar({ onGenerate, onRegenerate, isGenerating, currentSection
     }
   }, [createNewIdea, isCreatingIdea]);
 
-  // Auto-create first idea when user has no ideas
-  useEffect(() => {
-    if (ideas !== undefined && ideas.length === 0 && !isCreatingIdea && !currentIdeaId) {
-      handleCreateNewIdea();
-    }
-  }, [ideas, isCreatingIdea, currentIdeaId, handleCreateNewIdea]);
+  // Note: We no longer auto-create - the dashboard handles empty state
 
   const handleDeleteIdea = async (id: Id<'ideas'>, e: React.MouseEvent) => {
     e.stopPropagation();
@@ -135,11 +131,23 @@ export function Sidebar({ onGenerate, onRegenerate, isGenerating, currentSection
       {/* Header */}
       <div className="border-b border-zinc-200 p-4 dark:border-zinc-800">
         <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-lg font-semibold text-zinc-900 dark:text-zinc-100">
-              Idea Zone
-            </h1>
-            <span className="text-xs text-zinc-500">Transform ideas into action</span>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={clearCurrentIdea}
+              className="flex h-8 w-8 items-center justify-center rounded-lg text-zinc-500 transition-colors hover:bg-zinc-100 hover:text-zinc-700 dark:hover:bg-zinc-800 dark:hover:text-zinc-300"
+              title="Back to all ideas"
+            >
+              <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+              </svg>
+            </button>
+            <div>
+              <h1 className="text-lg font-semibold text-zinc-900 dark:text-zinc-100">
+                Idea Zone
+              </h1>
+              <span className="text-xs text-zinc-500">Transform ideas into action</span>
+            </div>
           </div>
           <div className="flex items-center gap-1">
             {isSaving && (
@@ -262,6 +270,18 @@ export function Sidebar({ onGenerate, onRegenerate, isGenerating, currentSection
         </div>
       </div>
 
+      {/* Idea Name */}
+      <div className="border-b border-zinc-200 px-4 py-3 dark:border-zinc-800">
+        <label className="mb-1 block text-xs font-medium text-zinc-500">Idea Name</label>
+        <input
+          type="text"
+          value={workspace.name}
+          onChange={(e) => setName(e.target.value)}
+          placeholder="Name your idea..."
+          className="w-full rounded-md border border-zinc-200 bg-white px-3 py-1.5 text-sm text-zinc-900 placeholder-zinc-400 transition-colors focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100 dark:placeholder-zinc-500"
+        />
+      </div>
+
       {/* Idea Input */}
       <div className="border-b border-zinc-200 p-4 dark:border-zinc-800">
         <div className="mb-2 flex items-center justify-between">
@@ -339,9 +359,17 @@ export function Sidebar({ onGenerate, onRegenerate, isGenerating, currentSection
           <button
             type="button"
             onClick={() => setShowSettings(!showSettings)}
-            className="text-xs text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300"
+            className={`flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-medium transition-colors ${
+              showSettings
+                ? 'bg-zinc-200 text-zinc-900 dark:bg-zinc-700 dark:text-zinc-100'
+                : 'bg-zinc-100 text-zinc-600 hover:bg-zinc-200 hover:text-zinc-900 dark:bg-zinc-800 dark:text-zinc-400 dark:hover:bg-zinc-700 dark:hover:text-zinc-100'
+            }`}
           >
-            {showSettings ? 'Hide settings' : 'Settings'}
+            <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+            </svg>
+            {showSettings ? 'Hide Settings' : 'Settings'}
           </button>
           <Button
             onClick={onGenerate}
